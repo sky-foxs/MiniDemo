@@ -54,6 +54,12 @@ namespace MiniDemo.EntityFrameworkCore
             ConfigureGlobalFilters<TEntity>(modelBuilder, mutableEntityType);
         }
 
+        /// <summary>
+        /// 将数据过滤语句加到查询中
+        /// </summary>
+        /// <typeparam name="TEntity"></typeparam>
+        /// <param name="modelBuilder"></param>
+        /// <param name="mutableEntityType"></param>
         protected virtual void ConfigureGlobalFilters<TEntity>(ModelBuilder modelBuilder, IMutableEntityType mutableEntityType)
            where TEntity : class
         {
@@ -82,6 +88,11 @@ namespace MiniDemo.EntityFrameworkCore
             return false;
         }
 
+        /// <summary>
+        /// 返回数据过滤表达式
+        /// </summary>
+        /// <typeparam name="TEntity"></typeparam>
+        /// <returns></returns>
         protected virtual Expression<Func<TEntity, bool>> CreateFilterExpression<TEntity>()
            where TEntity : class
         {
@@ -100,6 +111,14 @@ namespace MiniDemo.EntityFrameworkCore
 
             return expression;
         }
+
+        /// <summary>
+        /// 将expression1与expression2合并到一个表达式返回
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="expression1"></param>
+        /// <param name="expression2"></param>
+        /// <returns></returns>
         protected virtual Expression<Func<T, bool>> CombineExpressions<T>(Expression<Func<T, bool>> expression1, Expression<Func<T, bool>> expression2)
         {
             var parameter = Expression.Parameter(typeof(T));
@@ -112,7 +131,6 @@ namespace MiniDemo.EntityFrameworkCore
 
             return Expression.Lambda<Func<T, bool>>(Expression.AndAlso(left, right), parameter);
         }
-
         class ReplaceExpressionVisitor : ExpressionVisitor
         {
             private readonly Expression _oldValue;

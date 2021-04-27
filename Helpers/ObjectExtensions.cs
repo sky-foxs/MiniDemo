@@ -10,6 +10,11 @@ namespace MiniDemo.Helpers
 {
     public static class ObjectExtensions
     {
+        public static T As<T>(this object obj)
+           where T : class
+        {
+            return (T)obj;
+        }
         public static T To<T>(this object obj)
           where T : struct
         {
