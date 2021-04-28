@@ -10,9 +10,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using MiniDemo.AppMigrations;
+using MiniDemo.Audit;
 using MiniDemo.Data;
 using MiniDemo.DependencyInjection;
+using MiniDemo.EntityFrameworkCore;
 using MiniDemo.Security;
+using MiniDemo.Tenant;
 using MiniDemo.Users;
 using System;
 using System.Collections.Generic;
@@ -38,8 +41,13 @@ namespace MiniDemo
                     Configuration.GetConnectionString("DefaultConnection")));
             services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
                 .AddEntityFrameworkStores<ApplicationDbContext>();
+
+            services.AddDbContext<TestDbContext>(options => options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")));
             services.AddControllersWithViews();
             services.AddRazorPages();
+            services.AddTransient<IAuditPropertySetter, AuditPropertySetter>();
+            services.AddSingleton<ICurrentTenantAccessor, AsyncLocalCurrentTenantAccessor>();
+            services.AddTransient<ICurrentTenant, CurrentTenant>();
             services.AddTransient<ILazyServiceProvider, LazyServiceProvider>();
             services.AddSingleton(typeof(IDataFilter<>), typeof(DataFilter<>));
             services.AddSingleton<IDataFilter, DataFilter>();

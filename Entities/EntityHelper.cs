@@ -140,5 +140,19 @@ namespace MiniDemo.Entities
 
             return TypeHelper.IsDefaultValue(value);
         }
+
+        public static void TrySetId<TKey>(
+           IEntity<TKey> entity,
+           Func<TKey> idFactory,
+           bool checkForDisableIdGenerationAttribute = false)
+        {
+            ObjectHelper.TrySetProperty(
+                entity,
+                x => x.Id,
+                idFactory,
+                checkForDisableIdGenerationAttribute
+                    ? new Type[] { typeof(DisableIdGenerationAttribute) }
+                    : new Type[] { });
+        }
     }
 }
