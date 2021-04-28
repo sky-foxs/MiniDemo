@@ -42,6 +42,10 @@ namespace MiniDemo.Controllers
 
                 await test.SaveChangesAsync();
 
+                t.Content = "777";
+                test.Tests.Update(t);
+                await test.SaveChangesAsync();
+
                 test.Tests.Remove(t);
 
                 await test.SaveChangesAsync();
