@@ -1,27 +1,23 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
-using MiniDemo.Data;
-using MiniDemo.DependencyInjection;
-using MiniDemo.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Threading.Tasks;
-using MiniDemo.Helpers;
-using System.Linq.Expressions;
-using System.Threading;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
-using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore.Metadata;
 using MiniDemo.Audit;
+using MiniDemo.Data;
+using MiniDemo.Helpers;
 using MiniDemo.Tenant;
+using System;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MiniDemo.EntityFrameworkCore
 {
-    public abstract class MiniDbContext<TDbContext> : DbContext,IEfCoreDbContext
+    public abstract class MiniDbContext<TDbContext> : DbContext, IEfCoreDbContext
         where TDbContext : DbContext
     {
-       // public ILazyServiceProvider LazyServiceProvider { get; set; }
+        // public ILazyServiceProvider LazyServiceProvider { get; set; }
         public IServiceProvider ServiceProvider { get; set; }
 
         protected virtual Guid? CurrentTenantId => CurrentTenant?.Id;
@@ -41,7 +37,7 @@ namespace MiniDemo.EntityFrameworkCore
                    nameof(ConfigureBaseProperties),
                    BindingFlags.Instance | BindingFlags.NonPublic
                );
-        protected MiniDbContext(DbContextOptions<TDbContext> options,IServiceProvider serviceProvider)
+        protected MiniDbContext(DbContextOptions<TDbContext> options, IServiceProvider serviceProvider)
             : base(options)
         {
             ServiceProvider = serviceProvider;
@@ -51,8 +47,10 @@ namespace MiniDemo.EntityFrameworkCore
         {
             try
             {
-                var changeReport = ApplyAbpConcepts();
-
+                foreach (var entry in ChangeTracker.Entries().ToList())
+                {
+                    ApplyConcepts(entry);
+                }
                 var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
 
                 return result;
@@ -86,96 +84,31 @@ namespace MiniDemo.EntityFrameworkCore
             }
         }
 
-        protected virtual EntityChangeReport ApplyAbpConcepts()
-        {
-            var changeReport = new EntityChangeReport();
 
-            foreach (var entry in ChangeTracker.Entries().ToList())
-            {
-                ApplyConcepts(entry, changeReport);
-            }
-
-            return changeReport;
-        }
-
-        protected virtual void ApplyConcepts(EntityEntry entry, EntityChangeReport changeReport)
+        protected virtual void ApplyConcepts(EntityEntry entry)
         {
             switch (entry.State)
             {
                 case EntityState.Added:
-                    ApplyConceptsForAddedEntity(entry, changeReport);
+                    ApplyConceptsForAddedEntity(entry);
                     break;
                 case EntityState.Modified:
-                    ApplyConceptsForModifiedEntity(entry, changeReport);
+                    ApplyConceptsForModifiedEntity(entry);
                     break;
                 case EntityState.Deleted:
-                    ApplyConceptsForDeletedEntity(entry, changeReport);
+                    ApplyConceptsForDeletedEntity(entry);
                     break;
             }
 
-
-            AddDomainEvents(changeReport, entry.Entity);
         }
 
         #region 添加
 
-        protected virtual void ApplyConceptsForAddedEntity(EntityEntry entry, EntityChangeReport changeReport)
+        protected virtual void ApplyConceptsForAddedEntity(EntityEntry entry)
         {
-            CheckAndSetId(entry);
-            SetConcurrencyStampIfNull(entry);
             SetCreationAuditProperties(entry);
-            changeReport.ChangedEntities.Add(new EntityChangeEntry(entry.Entity, EntityChangeType.Created));
-        }
-        protected virtual void CheckAndSetId(EntityEntry entry)
-        {
-            if (entry.Entity is IEntity<Guid> entityWithGuidId)
-            {
-                TrySetGuidId(entry, entityWithGuidId);
-            }
         }
 
-        protected virtual void TrySetGuidId(EntityEntry entry, IEntity<Guid> entity)
-        {
-            if (entity.Id != default)
-            {
-                return;
-            }
-
-            var idProperty = entry.Property("Id").Metadata.PropertyInfo;
-
-            //Check for DatabaseGeneratedAttribute
-            var dbGeneratedAttr = ReflectionHelper
-                .GetSingleAttributeOrDefault<DatabaseGeneratedAttribute>(
-                    idProperty
-                );
-
-            if (dbGeneratedAttr != null && dbGeneratedAttr.DatabaseGeneratedOption != DatabaseGeneratedOption.None)
-            {
-                return;
-            }
-
-            EntityHelper.TrySetId(
-                entity,
-                () => Guid.NewGuid(),
-                true
-            );
-        }
-
-        protected virtual void SetConcurrencyStampIfNull(EntityEntry entry)
-        {
-            var entity = entry.Entity as IHasConcurrencyStamp;
-            if (entity == null)
-            {
-                return;
-            }
-
-            if (entity.ConcurrencyStamp != null)
-            {
-                return;
-            }
-
-            entity.ConcurrencyStamp = Guid.NewGuid().ToString("N");
-        }
 
         protected virtual void SetCreationAuditProperties(EntityEntry entry)
         {
@@ -186,32 +119,16 @@ namespace MiniDemo.EntityFrameworkCore
 
         #region 修改
 
-        protected virtual void ApplyConceptsForModifiedEntity(EntityEntry entry, EntityChangeReport changeReport)
+        protected virtual void ApplyConceptsForModifiedEntity(EntityEntry entry)
         {
-            UpdateConcurrencyStamp(entry);
             SetModificationAuditProperties(entry);
 
             if (entry.Entity is ISoftDelete && entry.Entity.As<ISoftDelete>().IsDeleted)
             {
                 SetDeletionAuditProperties(entry);
-                changeReport.ChangedEntities.Add(new EntityChangeEntry(entry.Entity, EntityChangeType.Deleted));
-            }
-            else
-            {
-                changeReport.ChangedEntities.Add(new EntityChangeEntry(entry.Entity, EntityChangeType.Updated));
             }
         }
-        protected virtual void UpdateConcurrencyStamp(EntityEntry entry)
-        {
-            var entity = entry.Entity as IHasConcurrencyStamp;
-            if (entity == null)
-            {
-                return;
-            }
 
-            Entry(entity).Property(x => x.ConcurrencyStamp).OriginalValue = entity.ConcurrencyStamp;
-            entity.ConcurrencyStamp = Guid.NewGuid().ToString("N");
-        }
 
         protected virtual void SetModificationAuditProperties(EntityEntry entry)
         {
@@ -226,15 +143,13 @@ namespace MiniDemo.EntityFrameworkCore
         #endregion
 
         #region 删除
-        protected virtual void ApplyConceptsForDeletedEntity(EntityEntry entry, EntityChangeReport changeReport)
+        protected virtual void ApplyConceptsForDeletedEntity(EntityEntry entry)
         {
             if (TryCancelDeletionForSoftDelete(entry))
             {
-                UpdateConcurrencyStamp(entry);
                 SetDeletionAuditProperties(entry);
             }
 
-            changeReport.ChangedEntities.Add(new EntityChangeEntry(entry.Entity, EntityChangeType.Deleted));
         }
         protected virtual bool TryCancelDeletionForSoftDelete(EntityEntry entry)
         {
@@ -251,28 +166,6 @@ namespace MiniDemo.EntityFrameworkCore
 
         #endregion
 
-        protected virtual void AddDomainEvents(EntityChangeReport changeReport, object entityAsObj)
-        {
-            var generatesDomainEventsEntity = entityAsObj as IGeneratesDomainEvents;
-            if (generatesDomainEventsEntity == null)
-            {
-                return;
-            }
-
-            var localEvents = generatesDomainEventsEntity.GetLocalEvents()?.ToArray();
-            if (localEvents != null && localEvents.Any())
-            {
-                changeReport.DomainEvents.AddRange(localEvents.Select(eventData => new DomainEventEntry(entityAsObj, eventData)));
-                generatesDomainEventsEntity.ClearLocalEvents();
-            }
-
-            var distributedEvents = generatesDomainEventsEntity.GetDistributedEvents()?.ToArray();
-            if (distributedEvents != null && distributedEvents.Any())
-            {
-                changeReport.DistributedEvents.AddRange(distributedEvents.Select(eventData => new DomainEventEntry(entityAsObj, eventData)));
-                generatesDomainEventsEntity.ClearDistributedEvents();
-            }
-        }
 
         #region 配置
 
@@ -318,12 +211,6 @@ namespace MiniDemo.EntityFrameworkCore
                 return;
             }
 
-            if (!typeof(IEntity).IsAssignableFrom(typeof(TEntity)))
-            {
-                return;
-            }
-
-            //to do
             modelBuilder.Entity<TEntity>().ConfigureByConvention();
 
             ConfigureGlobalFilters<TEntity>(modelBuilder, mutableEntityType);

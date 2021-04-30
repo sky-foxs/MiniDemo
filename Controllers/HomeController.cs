@@ -2,9 +2,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MiniDemo.AppMigrations;
+using MiniDemo.Data;
 using MiniDemo.Models;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -15,11 +15,13 @@ namespace MiniDemo.Controllers
     {
         private readonly ILogger<HomeController> _logger;
         private readonly IServiceProvider _serviceProvider;
+        private readonly IDataFilter _dataFilter;
 
-        public HomeController(ILogger<HomeController> logger,IServiceProvider serviceProvider)
+        public HomeController(ILogger<HomeController> logger, IServiceProvider serviceProvider, IDataFilter dataFilter)
         {
             _logger = logger;
             _serviceProvider = serviceProvider;
+            _dataFilter = dataFilter;
         }
 
         public IActionResult Index()
@@ -27,28 +29,29 @@ namespace MiniDemo.Controllers
             return View();
         }
 
-        public async Task Test()
+        public async Task<JsonResult> Test()
         {
             var optionsBuilder = new DbContextOptionsBuilder<TestDbContext>();
             optionsBuilder.UseSqlServer("Server=DESKTOP-HIO90M8\\SQLEXPRESS;Database=MiniDemo;Trusted_Connection=True;MultipleActiveResultSets=true;");
-            using (var test=new TestDbContext(optionsBuilder.Options,_serviceProvider))
+            using (var test = new TestDbContext(optionsBuilder.Options, _serviceProvider))
             {
-                var t = new Models.Test()
-                {
-                    Id = Guid.NewGuid(),
-                    Content = "666"
-                };
+                var t = new Test() { Id = Guid.NewGuid(), Content = DateTime.Now.ToString() };
+
                 test.Tests.Add(t);
 
                 await test.SaveChangesAsync();
 
-                t.Content = "777";
+                t.Content = DateTime.Now.ToString();
                 test.Tests.Update(t);
-                await test.SaveChangesAsync();
-
-                test.Tests.Remove(t);
 
                 await test.SaveChangesAsync();
+
+
+
+                using (_dataFilter.Disable<ISoftDelete>())
+                {
+                    return Json(await test.Tests.Where(m => m.Content != null).ToListAsync());
+                }
             }
         }
 

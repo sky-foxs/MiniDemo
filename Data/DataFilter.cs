@@ -1,17 +1,14 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using MiniDemo.Helpers;
-using Microsoft.Extensions.DependencyInjection;
-using System.Threading;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using MiniDemo.Helpers;
 using MiniDemo.Security;
+using System;
+using System.Collections.Concurrent;
+using System.Threading;
 
 namespace MiniDemo.Data
 {
-    public class DataFilter:IDataFilter
+    public class DataFilter : IDataFilter
     {
         private readonly ConcurrentDictionary<Type, object> _filters;
 

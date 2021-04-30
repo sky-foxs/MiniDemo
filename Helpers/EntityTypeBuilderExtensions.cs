@@ -17,7 +17,6 @@ namespace MiniDemo.Helpers
         /// <param name="b"></param>
         public static void ConfigureByConvention(this EntityTypeBuilder b)
         {
-            b.TryConfigureConcurrencyStamp();
             b.TryConfigureMultiTenant();
             b.TryConfigureSoftDelete();
             b.TryConfigureDeletionTime();
@@ -28,21 +27,7 @@ namespace MiniDemo.Helpers
             b.TryConfigureLastModificationTime();
             b.TryConfigureModificationAudited();
         }
-        public static void ConfigureConcurrencyStamp<T>(this EntityTypeBuilder<T> b)
-           where T : class, IHasConcurrencyStamp
-        {
-            b.As<EntityTypeBuilder>().TryConfigureConcurrencyStamp();
-        }
-        public static void TryConfigureConcurrencyStamp(this EntityTypeBuilder b)
-        {
-            if (b.Metadata.ClrType.IsAssignableTo<IHasConcurrencyStamp>())
-            {
-                b.Property(nameof(IHasConcurrencyStamp.ConcurrencyStamp))
-                    .IsConcurrencyToken()
-                    .HasMaxLength(ConcurrencyStampConsts.MaxLength)
-                    .HasColumnName(nameof(IHasConcurrencyStamp.ConcurrencyStamp));
-            }
-        }
+     
 
         public static void TryConfigureMultiTenant(this EntityTypeBuilder b)
         {
